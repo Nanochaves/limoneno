@@ -1,4 +1,4 @@
-name: Limoneno pipeline
+name: Limoneno backend workflow
 
 on:
     push:
@@ -11,6 +11,10 @@ env:
     AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
     AWS_DEFAULT_REGION: us-east-1
     CLUSTER_NAME: limoneno
+
+defaults:
+  run:
+    working-directory: ./backend
 
 jobs:
     build:
@@ -33,20 +37,18 @@ jobs:
 
         - name: Install skaffold
           run: |
-            cd /tmp
-            curl -L -o skaffold https://storage.googleapis.com/skaffold/releases/v1.32.0/skaffold-linux-amd64
-            sudo install skaffold /usr/local/bin/
+            curl -L -o /tmp/skaffold https://storage.googleapis.com/skaffold/releases/v1.32.0/skaffold-linux-amd64
+            sudo install /tmp/skaffold /usr/local/bin/
 
         - name: Build Image
           run: |
-            cd backend
             skaffold build -p prod --file-output build-state.json
 
         - name: Upload build state
           uses: actions/upload-artifact@v2
           with:
             name: build-state
-            path: backend/build-state.json
+            path: build-state.json
 
     deploy:
         name: Deploy to cluster
@@ -74,19 +76,17 @@ jobs:
         - name: Install kustomize, kubectl and skaffold
           run: |
             cd /tmp
-            curl -L -o kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.22.2/bin/linux/amd64/kubectl"
-            sudo install kubectl /usr/local/bin/
-            curl -L -o skaffold https://storage.googleapis.com/skaffold/releases/v1.32.0/skaffold-linux-amd64
-            sudo install skaffold /usr/local/bin/
+            curl -L -o /tmp/kubectl "https://storage.googleapis.com/kubernetes-release/release/v1.22.2/bin/linux/amd64/kubectl"
+            sudo install /tmp/kubectl /usr/local/bin/
+            curl -L -o /tmp/skaffold https://storage.googleapis.com/skaffold/releases/v1.32.0/skaffold-linux-amd64
+            sudo install /tmp/skaffold /usr/local/bin/
             curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
 
         - name: Download build state
           uses: actions/download-artifact@v2
           with:
             name: build-state
-            path: backend
 
         - name: Deploy to cluster
           run: |
-            cd backend
             skaffold deploy -n limoneno -p prod -a build-state.json -n limoneno
